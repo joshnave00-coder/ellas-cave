@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Ella's Cave — HTML (browser)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8000", "--directory", "."],
+      "port": 8000
+    },
+    {
+      "name": "Ella's Cave — Pygame (desktop)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["ella_cave.py"],
+      "port": null
+    }
+  ]
+}
