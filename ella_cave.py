@@ -23,6 +23,18 @@ STATE_WIN         = 'win'
 STATE_LEADERBOARD = 'leaderboard'
 
 
+def fit_to_display(surf, display_w, display_h):
+    """Return (surface, (x, y)) to blit: centred at native size when the window
+    is big enough, otherwise shrunk (aspect kept) so the HUD and the bottom of
+    the level are never cropped off a small window."""
+    w, h = surf.get_size()
+    k = min(display_w / w, display_h / h)
+    if k < 1 and display_w > 0 and display_h > 0:
+        w, h = max(1, int(w * k)), max(1, int(h * k))
+        surf = pygame.transform.smoothscale(surf, (w, h))
+    return surf, ((display_w - w) // 2, (display_h - h) // 2)
+
+
 class Game:
     def __init__(self):
         self.state   = STATE_MENU
@@ -43,6 +55,7 @@ class Game:
         self._jail_rx    = 100
         self._jail_ry    = GROUND_Y
         self._jail_score = 0
+        self._jail_coins = set()
         # Lives & death animation
         self.lives              = 3
         self.death_anim_timer   = 0   # frames remaining in death animation
@@ -73,6 +86,9 @@ class Game:
         self.fade_dir = -1
 
     def goto_jail(self, return_x, return_y, score):
+        # Remember which coins are gone so the rebuilt level doesn't hand them
+        # out a second time (the score is carried over).
+        self._jail_coins = {(c.cx, c.cy) for c in self.level1.coins if c.collected}
         self.jail = FoxJailScreen(return_x, return_y, score)
         self.state = STATE_JAIL
 
@@ -140,6 +156,9 @@ class Game:
             elif t == 'jail_return':
                 self.level1 = Level1(self._jail_score, self._jail_rx, self._jail_ry,
                                      bear_freeze=60)
+                for c in self.level1.coins:
+                    if (c.cx, c.cy) in self._jail_coins:
+                        c.collected = True
                 self.state = STATE_L1
             self.fade_dir = -1
         elif self.fade_dir == -1 and self.fade_alpha <= 0:
@@ -164,10 +183,13 @@ class Game:
                         self.leaderboard = LeaderboardScreen()
                         self.state = STATE_LEADERBOARD
                     elif result == 'l2_cheat':
+                        self.lives = 3
                         self.start_fade('l2', 0)
                     elif result == 'l3_cheat':
+                        self.lives = 3
                         self.start_fade('l3', 0)
                     elif result == 'l4_cheat':
+                        self.lives = 3
                         self.start_fade('l4', 0)
 
                 elif self.state == STATE_GAMEOVER and self.gameover:
@@ -304,9 +326,8 @@ class Game:
             # Center game_surf on actual display with black bars
             display_w, display_h = _display.get_size()
             _display.fill(BLACK)
-            dest_x = (display_w - SCREEN_W) // 2
-            dest_y = (display_h - SCREEN_H) // 2
-            _display.blit(game_surf, (dest_x, dest_y))
+            frame_surf, (dest_x, dest_y) = fit_to_display(game_surf, display_w, display_h)
+            _display.blit(frame_surf, (dest_x, dest_y))
 
             pygame.display.flip()
 

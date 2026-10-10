@@ -632,7 +632,9 @@ class FoxJailScreen:
         if self.phase != 2 or self.math_solved or self.math_q is None:
             return
         k = event.key
-        if event.unicode.isdigit() and len(self.math_input) < 2:
+        # ASCII digits only: str.isdigit() also accepts keys like '²' (AZERTY),
+        # which int() then rejects.
+        if event.unicode and event.unicode in '0123456789' and len(self.math_input) < 2:
             self.math_input += event.unicode
         elif k == pygame.K_BACKSPACE:
             self.math_input = self.math_input[:-1]

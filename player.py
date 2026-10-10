@@ -91,15 +91,19 @@ class Player:
         if self.vy > MAX_FALL:
             self.vy = MAX_FALL
 
+        prev_left, prev_right = self.rect.left, self.rect.right
         self.rect.x += int(self.vx)
         self.rect.x = max(0, self.rect.x)
         # Platforms are pass-through from the sides and below — top-only landing.
         # Ice bridges retain side-collision so Ella can walk up to and onto them.
+        # Only block when she arrives from the side: if she was already under/over
+        # the bridge (e.g. jumping up through it) snapping to its end would
+        # teleport her most of its length.
         for b in self.ice_bridges:
             if self.rect.colliderect(b.rect):
-                if self.vx > 0:
+                if self.vx > 0 and prev_right <= b.rect.left:
                     self.rect.right = b.rect.left
-                elif self.vx < 0:
+                elif self.vx < 0 and prev_left >= b.rect.right:
                     self.rect.left = b.rect.right
 
         self.rect.y += int(self.vy)
@@ -116,8 +120,9 @@ class Player:
                     self.on_ground = True
 
         if self.rect.top > SCREEN_H + 60:
-            self.dead = True
-            self.death_cause = 'fall'
+            if not self.dead:      # keep the real cause (e.g. Level 3 lava pit)
+                self.dead = True
+                self.death_cause = 'fall'
             return
 
         for s in spikes:

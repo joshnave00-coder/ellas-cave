@@ -914,16 +914,46 @@ _cave_glow_cache = [(random.uniform(0, 4400), random.uniform(0, SCREEN_H),
                      random.uniform(0.025, 0.06),
                      random.choice([28, 45, 200])) for _ in range(35)]
 
+# The rock-tile pattern and the edge vignette never change, so they are built
+# once and blitted — rebuilding them every frame was most of the cave's draw cost.
+_cave_tile_cols = None
+_cave_vignette = None
+
+def _build_cave_bg_cache():
+    global _cave_tile_cols, _cave_vignette
+    # A column's tile rows depend only on (column index % 5).
+    _cave_tile_cols = []
+    for k in range(5):
+        col = pygame.Surface((13, SCREEN_H + 20), pygame.SRCALPHA)
+        for j in range(0, SCREEN_H + 20, 14):
+            if (k * 31 + (j // 14) * 37) % 5 == 0:
+                pygame.draw.rect(col, CAVE_MD, pygame.Rect(0, j, 13, 13))
+        _cave_tile_cols.append(col)
+    _cave_vignette = []
+    for edge, axis in [('left', True), ('right', True), ('top', False), ('bottom', False)]:
+        vs = pygame.Surface((80, SCREEN_H) if axis else (SCREEN_W, 80), pygame.SRCALPHA)
+        vs.fill((0, 0, 0, 0))
+        for xi in range(80):
+            alpha = int(180 * (1 - xi/80)**2)
+            col = (0, 0, 0, alpha)
+            if axis:
+                pygame.draw.line(vs, col, (xi if edge=='left' else 79-xi, 0),
+                                 (xi if edge=='left' else 79-xi, SCREEN_H))
+            else:
+                pygame.draw.line(vs, col, (0, xi if edge=='top' else 79-xi),
+                                 (SCREEN_W, xi if edge=='top' else 79-xi))
+        pos = {'left': (0, 0), 'right': (SCREEN_W-80, 0),
+               'top': (0, 0), 'bottom': (0, SCREEN_H-80)}[edge]
+        _cave_vignette.append((vs, pos))
+
+
 def draw_level2_bg(surf, cam_x, frame):
     surf.fill(CAVE_BG)
 
+    if _cave_tile_cols is None:
+        _build_cave_bg_cache()
     for i in range(0, SCREEN_W + 50, 14):
-        for j in range(0, SCREEN_H + 20, 14):
-            wx2 = i + cam_x
-            wy2 = j
-            h = (int(wx2//14)*31 + int(wy2//14)*37) % 5
-            if h == 0:
-                pygame.draw.rect(surf, CAVE_MD, pygame.Rect(i, j, 13, 13))
+        surf.blit(_cave_tile_cols[int((i + cam_x) // 14) % 5], (i, 0))
 
     for (gx, gy, gr, phase, spd, hue) in _cave_glow_cache:
         sx2 = gx - cam_x
@@ -942,22 +972,8 @@ def draw_level2_bg(surf, cam_x, frame):
         pygame.draw.circle(gsurf, col, (r+1, r+1), r)
         surf.blit(gsurf, (int(sx2) - r - 1, int(gy) - r - 1))
 
-    for edge, axis in [('left', True), ('right', True), ('top', False), ('bottom', False)]:
-        vs = pygame.Surface((80, SCREEN_H) if axis else (SCREEN_W, 80), pygame.SRCALPHA)
-        vs.fill((0, 0, 0, 0))
-        for xi in range(80):
-            alpha = int(180 * (1 - xi/80)**2)
-            col = (0, 0, 0, alpha)
-            if axis:
-                pygame.draw.line(vs, col, (xi if edge=='left' else 79-xi, 0),
-                                 (xi if edge=='left' else 79-xi, SCREEN_H))
-            else:
-                pygame.draw.line(vs, col, (0, xi if edge=='top' else 79-xi),
-                                 (SCREEN_W, xi if edge=='top' else 79-xi))
-        if edge == 'left':   surf.blit(vs, (0, 0))
-        elif edge == 'right': surf.blit(vs, (SCREEN_W-80, 0))
-        elif edge == 'top':  surf.blit(vs, (0, 0))
-        else:                surf.blit(vs, (0, SCREEN_H-80))
+    for vs, pos in _cave_vignette:
+        surf.blit(vs, pos)
 
     for tx2 in range(100, 4400, 320):
         for ty2 in [18, GROUND_Y - 10]:
@@ -1053,7 +1069,9 @@ def draw_lives_hud(surf, lives):
 def draw_hud(surf, score, level_name, frame):
     draw_rounded_rect(surf, (0,0,0,160), pygame.Rect(10, 10, 180, 38), 10)
     txt(surf, f"Score: {score}", FONT_SM, GOLD, 100, 29)
-    draw_rounded_rect(surf, (0,0,0,160), pygame.Rect(SCREEN_W//2-100, 10, 200, 38), 10)
+    # Box grows with the title so long names ("Level 1: Snowy Mountains") fit.
+    box_w = max(200, FONT_SM.size(level_name)[0] + 28)
+    draw_rounded_rect(surf, (0,0,0,160), pygame.Rect(SCREEN_W//2 - box_w//2, 10, box_w, 38), 10)
     txt(surf, level_name, FONT_SM, WHITE, SCREEN_W//2, 29)
 
 

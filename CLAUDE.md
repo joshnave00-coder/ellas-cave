@@ -6,6 +6,11 @@ python ella_cave.py          # run the game
 python -m py_compile constants.py leaderboard.py drawing.py entities.py player.py levels.py levels_z3.py levels_z4.py screens.py zones.py ella_cave.py sprites.py && echo OK   # syntax check all
 ```
 
+Regression tests (headless, never touch the real `leaderboard.json`):
+```
+python -m unittest discover -s tests
+```
+
 ## Stack
 Python 3.8+ / Pygame 2.x — multi-module. Art is procedural by default; an
 optional **sprite system** (`sprites.py` + `assets/`) lets PNG files override
@@ -113,7 +118,9 @@ MAX_WIDTH = 220    # px — jumpable with ice bridge or running jump
 - **FoxFriend flip cooldown**: `_flip_cd` (int, frames) is set to `20` on `__init__` and reset to `20` after any direction flip from edge/spike detection. Prevents rapid oscillation when spawning near hazards.
 - **Fox friend spawn filtering**: `make_fox_friends()` (Level 2) and `make_level3_fox_friends()` pre-filter positions to keep foxes ≥70 px from any ground-spike cx and **only on solid ground** — Level 2 excludes the gaps between ground segments; Level 3 excludes pit x-ranges.
 - **Scoring**: coins = 10 pts each; Level2 chest = +200 pts; Level3 chest = +500 pts; Level4 reaching home = +250 pts.
-- **Leaderboard**: `LB_FILE` always resolves relative to the script directory (`os.path.dirname(os.path.abspath(__file__))`).
+- **Leaderboard**: `LB_FILE` always resolves relative to the script directory (`os.path.dirname(os.path.abspath(__file__))`). `_load` drops malformed entries (`_clean`) and moves an unparseable file to `leaderboard.json.corrupt`; `save` writes `leaderboard.json.tmp` then `os.replace`s it in (atomic).
+- **Window scaling**: `fit_to_display` (`ella_cave.py`) centres the 1200x700 frame at native size, or shrinks it (aspect kept) when the window is smaller — it never upscales.
+- **Jail return keeps coins**: `Game.goto_jail` records collected coin positions (`_jail_coins`) and re-marks them on the rebuilt `Level1`, so the carried score can't be re-earned.
 - **particles global**: defined in `drawing.py`, imported by `player.py` and `zones.py`.
 - **Art is procedural by default, with optional sprite overrides**: `drawing.py` imports `get_sprite`/`get_animation` from `sprites.py`. Four draw functions check for an asset first and fall back to the hand-drawn art if it's missing: `draw_polar_bear` (`assets/polar_bear.png`, walk-strip, `POLAR_BEAR_FRAMES`), `draw_human` (`assets/catcher.png`, walk-strip, `CATCHER_FRAMES` — sprite path ignores `gender`), `draw_volcano` (`assets/volcano.png`, single image, anchored so its base sits at the original ground), `draw_lava_pit` + `LavaPool.draw` (`assets/lava.png`, tiled animated strip via `_blit_lava_tile`, `LAVA_FRAMES`). Frame-count and target-size constants live near each helper in `drawing.py` so artists can swap in differently-sized strips.
 - **Easter eggs** (main menu, `MenuScreen.handle`): pressing `2`, `3`, or `4` five times within 3 seconds jumps directly to Level 2, 3, or 4 respectively (`l2_cheat`/`l3_cheat`/`l4_cheat`).
